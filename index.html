@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Quiz</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .container {
+    background: #fff;
+    width: 100%;
+    max-width: 500px;
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 22px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block; font-size: 14px; color: #444;
+    margin-bottom: 6px; font-weight: 600;
+  }
+  .form-group input {
+    width: 100%; padding: 12px 14px; border: 2px solid #ddd;
+    border-radius: 10px; font-size: 15px; outline: none;
+  }
+  .form-group input:focus { border-color: #667eea; }
+  .error { color: #dc3545; font-size: 13px; margin-top: 4px; display: none; }
+  .start-btn {
+    width: 100%; padding: 14px; background: #667eea; color: #fff;
+    border: none; border-radius: 10px; font-size: 16px; cursor: pointer; margin-top: 10px;
+  }
+  .start-btn:hover { background: #5a6fd6; }
+  .progress { height: 8px; background: #eee; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+  .progress-bar { height: 100%; background: #667eea; width: 0%; transition: width 0.3s; }
+  .question { font-size: 18px; color: #222; margin-bottom: 20px; font-weight: 600; }
+  .options { display: flex; flex-direction: column; gap: 12px; }
+  .option {
+    padding: 14px 18px; border: 2px solid #ddd; border-radius: 10px;
+    cursor: pointer; transition: all 0.2s; background: #fafafa;
+  }
+  .option:hover { border-color: #667eea; background: #f0f2ff; }
+  .option.correct { border-color: #28a745; background: #e6f9ea; }
+  .option.wrong { border-color: #dc3545; background: #fdeaea; }
+  .option.disabled { pointer-events: none; }
+  .next-btn {
+    margin-top: 20px; width: 100%; padding: 14px; background: #667eea;
+    color: #fff; border: none; border-radius: 10px; font-size: 16px;
+    cursor: pointer; display: none;
+  }
+  .next-btn:hover { background: #5a6fd6; }
+  .score { text-align: center; }
+  .score h2 { color: #667eea; font-size: 28px; margin-bottom: 10px; }
+  .score p { color: #555; margin-bottom: 6px; }
+  .restart-btn {
+    margin-top: 18px; padding: 14px 30px; background: #667eea;
+    color: #fff; border: none; border-radius: 10px; font-size: 16px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+
+<script>
+const questions = [
+  { question: "Myanmar ရဲ့ မြို့တော်က ဘယ်မြို့လဲ?", options: ["ရန်ကုန်", "နေပြည်တော်", "မန္တလေး", "ပုဂံ"], answer: 1 },
+  { question: "1 + 1 = ?", options: ["1", "2", "3", "4"], answer: 1 },
+  { question: "HTML ရဲ့ အဓိပ္ပာယ်က?", options: ["Hyper Text Markup Language", "High Tech Modern Language", "Home Tool Markup Language", "Hyperlink Text Markup Language"], answer: 0 },
+  { question: "ကမ္ဘာ့အကြီးဆုံး သမုဒ္ဒရာက?", options: ["Atlantic", "Indian", "Pacific", "Arctic"], answer: 2 },
+  { question: "JavaScript ကို ဘယ်နှစ်မှာ ဖန်တီးခဲ့လဲ?", options: ["1990", "1995", "2000", "2005"], answer: 1 }
+];
+
+let current = 0;
+let score = 0;
+let user = { name: "", email: "", age: "" };
+const app = document.getElementById('app');
+
+// ---------- INFO FORM ----------
+function renderInfoForm() {
+  // ဖုန်းထဲမှာ သိမ်းထားတာ ရှိရင် ပြန်ဖြည့်ပေး
+  const saved = JSON.parse(localStorage.getItem('quizUser') || '{}');
+
+  app.innerHTML = `
+    <h1>Quiz မဖြေခင် အချက်အလက် ဖြည့်ပါ</h1>
+    <div class="form-group">
+      <label>နာမည် *</label>
+      <input type="text" id="name" placeholder="သင့်နာမည်" value="${saved.name || ''}">
+      <div class="error" id="nameErr">နာမည် ထည့်ပေးပါ</div>
+    </div>
+    <div class="form-group">
+      <label>အီးမေးလ် *</label>
+      <input type="email" id="email" placeholder="example@mail.com" value="${saved.email || ''}">
+      <div class="error" id="emailErr">မှန်ကန်တဲ့ အီးမေးလ် ထည့်ပါ</div>
+    </div>
+    <div class="form-group">
+      <label>အသက် *</label>
+      <input type="number" id="age" placeholder="ဥပမာ 20" min="1" max="120" value="${saved.age || ''}">
+      <div class="error" id="ageErr">အသက်ကို ၁ ကနေ ၁၂၀ အတွင်း ထည့်ပါ</div>
+    </div>
+    <button class="start-btn" id="startBtn">Quiz စမည်</button>
+  `;
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const age = document.getElementById('age').value.trim();
+
+    let valid = true;
+    ['nameErr','emailErr','ageErr'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+
+    if (!name) { document.getElementById('nameErr').style.display = 'block'; valid = false; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) { document.getElementById('emailErr').style.display = 'block'; valid = false; }
+    const ageNum = Number(age);
+    if (!age || isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+      document.getElementById('ageErr').style.display = 'block'; valid = false;
+    }
+    if (!valid) return;
+
+    user = { name, email, age };
+    // ဖုန်းထဲမှာ သိမ်း
+    localStorage.setItem('quizUser', JSON.stringify(user));
+
+    current = 0;
+    score = 0;
+    renderQuestion();
+  });
+}
+
+// ---------- QUESTION ----------
+function renderQuestion() {
+  const q = questions[current];
+  const progress = (current / questions.length) * 100;
+  app.innerHTML = `
+    <h1>Quiz App</h1>
+    <div class="progress"><div class="progress-bar" style="width:${progress}%"></div></div>
+    <div class="question">${current + 1}. ${q.question}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `<div class="option" data-index="${i}">${opt}</div>`).join('')}
+    </div>
+    <button class="next-btn" id="nextBtn">Next</button>
+  `;
+  const optionEls = document.querySelectorAll('.option');
+  optionEls.forEach(el => el.addEventListener('click', () => selectAnswer(el, optionEls)));
+  document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+}
+
+function selectAnswer(selected, allOptions) {
+  const q = questions[current];
+  const chosen = parseInt(selected.dataset.index);
+  allOptions.forEach(el => el.classList.add('disabled'));
+  if (chosen === q.answer) {
+    selected.classList.add('correct');
+    score++;
+  } else {
+    selected.classList.add('wrong');
+    allOptions[q.answer].classList.add('correct');
+  }
+  document.getElementById('nextBtn').style.display = 'block';
+}
+
+function nextQuestion() {
+  current++;
+  if (current < questions.length) renderQuestion();
+  else showScore();
+}
+
+// ---------- SCORE ----------
+function showScore() {
+  // Score ကိုပါ သိမ်း
+  const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+  history.push({ ...user, score, total: questions.length, date: new Date().toISOString() });
+  localStorage.setItem('quizHistory', JSON.stringify(history));
+
+  app.innerHTML = `
+    <div class="score">
+      <h2>Your Score</h2>
+      <p><strong>${user.name}</strong> (အသက် ${user.age})</p>
+      <p>${score} / ${questions.length} မှန်</p>
+      <p style="font-size:13px;color:#888;margin-top:12px;">ရလဒ်ကို ဖုန်းထဲမှာ သိမ်းထားပါတယ်</p>
+      <button class="restart-btn" id="restart">ပြန်စမ်း</button>
+    </div>
+  `;
+  document.getElementById('restart').addEventListener('click', renderInfoForm);
+}
+
+renderInfoForm();
+</script>
+</body>
+</html>
